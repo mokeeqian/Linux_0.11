@@ -1,5 +1,4 @@
 
-<<<<<<< HEAD
 // library 宏定义是为了包括定义在unistd.h中的内嵌汇编代码等信息
 #define __LIBRARY__
 
@@ -10,12 +9,10 @@
 
 // 这里主要定义了tm结构和有关时间的函数原型
 #include <time.h>	
-=======
 
 #define __LIBRARY__
 #include <unistd.h>
 #include <time.h>
->>>>>>> 61962ee7a6153684bc79c00ed14c7b57dad3ece0
 
 /*
  * we need this inline - forking from kernel space will result
@@ -29,7 +26,7 @@
  * won't be any messing with the stack from main(), but we define
  * some others too.
  */
-<<<<<<< HEAD
+
 
 // main.c会在移动到内核态之后才会执行fork(),避免在内核空间发生写时复制(copy on write)
 // 在执行了move_to_user_mode()之后，该程序就会在任务0中运行，任务0是所有即将创建的进程的父进程，他的子进程会复制它的堆栈，所以说，我们尽量保证main.c运行在任务0的时候，不要有其他任何对堆栈的操作，以免弄乱堆栈，导致子进程的不可预料的混乱。
@@ -44,11 +41,6 @@ static inline _syscall0(int,pause)
 static inline _syscall1(int,setup,void *,BIOS)
 
 // int sysc()系统调用，更新文件系统
-=======
-static inline _syscall0(int,fork)
-static inline _syscall0(int,pause)
-static inline _syscall1(int,setup,void *,BIOS)
->>>>>>> 61962ee7a6153684bc79c00ed14c7b57dad3ece0
 static inline _syscall0(int,sync)
 
 #include <linux/tty.h>
@@ -75,27 +67,17 @@ extern void hd_init(void);
 extern void floppy_init(void);
 extern void mem_init(long start, long end);
 extern long rd_init(long mem_start, int length);
-<<<<<<< HEAD
 extern long kernel_mktime(struct tm * tm);		// 系统开机时间
-=======
-extern long kernel_mktime(struct tm * tm);
->>>>>>> 61962ee7a6153684bc79c00ed14c7b57dad3ece0
 extern long startup_time;
 
 /*
  * This is set up by the setup-routine at boot-time
  */
-<<<<<<< HEAD
 
 // 以下这些程序由setup.s开机引导时设置
 #define EXT_MEM_K (*(unsigned short *)0x90002)	// 1M以后的扩展内存大小(kb)
 #define DRIVE_INFO (*(struct drive_info *)0x90080)	// 硬盘参数表基址
 #define ORIG_ROOT_DEV (*(unsigned short *)0x901FC)	// 根文件系统所在设备号
-=======
-#define EXT_MEM_K (*(unsigned short *)0x90002)
-#define DRIVE_INFO (*(struct drive_info *)0x90080)
-#define ORIG_ROOT_DEV (*(unsigned short *)0x901FC)
->>>>>>> 61962ee7a6153684bc79c00ed14c7b57dad3ece0
 
 /*
  * Yeah, yeah, it's ugly, but I cannot find how to do this correctly
@@ -104,7 +86,6 @@ extern long startup_time;
  * bios-listing reading. Urghh.
  */
 
-<<<<<<< HEAD
 // 读取CMOS实时时钟信息
 #define CMOS_READ(addr) ({ \
 outb_p(0x80|addr,0x70); \		// 0x70是写端口号，0x80 | addr 是要读取的CMOS内存地址
@@ -120,19 +101,6 @@ static void time_init(void)
 	struct tm time;		// tm 结构定义在include/time.h中
 
 	// 需要知道的是CMOS的访问速度很慢，为了减小误差，在读取完下列循环中的数值之后，若此时CMOS中的秒数发生了变化，就重新读取这些数值，可以把误差控制在1秒之内。
-=======
-#define CMOS_READ(addr) ({ \
-outb_p(0x80|addr,0x70); \
-inb_p(0x71); \
-})
-
-#define BCD_TO_BIN(val) ((val)=((val)&15) + ((val)>>4)*10)
-
-static void time_init(void)
-{
-	struct tm time;
-
->>>>>>> 61962ee7a6153684bc79c00ed14c7b57dad3ece0
 	do {
 		time.tm_sec = CMOS_READ(0);
 		time.tm_min = CMOS_READ(2);
@@ -147,7 +115,7 @@ static void time_init(void)
 	BCD_TO_BIN(time.tm_mday);
 	BCD_TO_BIN(time.tm_mon);
 	BCD_TO_BIN(time.tm_year);
-<<<<<<< HEAD
+
 	time.tm_mon--;		// tm_mon中的月份是0-11
 
 	// 调用mktime.c中函数，计算从1970.1.1 0时起到目前进过的秒数，作为开机时间
@@ -159,17 +127,7 @@ static long buffer_memory_end = 0;	// cache末端地址
 static long main_memory_start = 0;	// 主存（即将用于分页的）起始地址
 
 struct drive_info { char dummy[32]; } drive_info;	// 用于存放硬盘参数表信息
-=======
-	time.tm_mon--;
-	startup_time = kernel_mktime(&time);
-}
 
-static long memory_end = 0;
-static long buffer_memory_end = 0;
-static long main_memory_start = 0;
-
-struct drive_info { char dummy[32]; } drive_info;
->>>>>>> 61962ee7a6153684bc79c00ed14c7b57dad3ece0
 
 void main(void)		/* This really IS void, no error here. */
 {			/* The startup routine assumes (well, ...) this */
@@ -177,7 +135,6 @@ void main(void)		/* This really IS void, no error here. */
  * Interrupts are still disabled. Do necessary setups, then
  * enable them
  */
-<<<<<<< HEAD
 
 	// 中断还是被屏蔽着......
  	ROOT_DEV = ORIG_ROOT_DEV;
@@ -193,26 +150,15 @@ void main(void)		/* This really IS void, no error here. */
 	if (memory_end > 12*1024*1024) 
 		buffer_memory_end = 4*1024*1024;
 
-=======
- 	ROOT_DEV = ORIG_ROOT_DEV;
- 	drive_info = DRIVE_INFO;
-	memory_end = (1<<20) + (EXT_MEM_K<<10);
-	memory_end &= 0xfffff000;
-	if (memory_end > 16*1024*1024)
-		memory_end = 16*1024*1024;
-	if (memory_end > 12*1024*1024) 
-		buffer_memory_end = 4*1024*1024;
->>>>>>> 61962ee7a6153684bc79c00ed14c7b57dad3ece0
 	else if (memory_end > 6*1024*1024)
 		buffer_memory_end = 2*1024*1024;
 	else
 		buffer_memory_end = 1*1024*1024;
-<<<<<<< HEAD
+
 
 	// 设置主存起始位置为缓冲区末端
-=======
->>>>>>> 61962ee7a6153684bc79c00ed14c7b57dad3ece0
 	main_memory_start = buffer_memory_end;
+	
 #ifdef RAMDISK
 	main_memory_start += rd_init(main_memory_start, RAMDISK*1024);
 #endif
