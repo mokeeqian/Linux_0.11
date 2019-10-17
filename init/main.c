@@ -8,10 +8,6 @@
 #include <unistd.h>
 
 // 这里主要定义了tm结构和有关时间的函数原型
-#include <time.h>	
-
-#define __LIBRARY__
-#include <unistd.h>
 #include <time.h>
 
 /*
@@ -142,7 +138,7 @@ void main(void)		/* This really IS void, no error here. */
 	memory_end = (1<<20) + (EXT_MEM_K<<10);		// 内存大小=1MB + 扩展内存×1024字节
 	memory_end &= 0xfffff000;					// 忽略不到4 kb（一页）的字节数
 
-	// 如果内存超过16 MB，就按16 MB 来计算
+	// 如果内存超过16 MB，就按16 MB 来计算,就是说Linux-0.11最大支持16MB物理内存，其中 0-1MB内存空间用于内核系统（实际上是0-640KB）
 	if (memory_end > 16*1024*1024)
 		memory_end = 16*1024*1024;
 
@@ -158,24 +154,27 @@ void main(void)		/* This really IS void, no error here. */
 
 	// 设置主存起始位置为缓冲区末端
 	main_memory_start = buffer_memory_end;
-	
+
+// 如果定义了内存虚拟盘，则初始化虚拟盘，此时主存将减少。
 #ifdef RAMDISK
 	main_memory_start += rd_init(main_memory_start, RAMDISK*1024);
 #endif
+
+	// 以下是内核初始化工作
 	mem_init(main_memory_start,memory_end);
-	trap_init();
-	blk_dev_init();
-	chr_dev_init();
-	tty_init();
-	time_init();
-	sched_init();
-	buffer_init(buffer_memory_end);
+	trap_init();		// 陷阱门（硬件中断向量）
+	blk_dev_init();		// 块设备初始化
+	chr_dev_init();		// 字符设备初始化
+	tty_init();			// tty初始化
+	time_init();		// 设置设备开机时间
+	sched_init();		// 进程调度程序初始化（加载任务0的tr, ldtr）
+	buffer_init(buffer_memory_end);		// 缓冲区初始化，建立内存链表
 	hd_init();
 	floppy_init();
 	sti();
 	move_to_user_mode();
 	if (!fork()) {		/* we count on this going ok */
-		init();
+		init();			// 切换到任务 0 中执行
 	}
 /*
  *   NOTE!!   For any other task 'pause()' would mean we have to get a
@@ -184,6 +183,9 @@ void main(void)		/* This really IS void, no error here. */
  * can run). For task0 'pause()' just means we go check if some other
  * task can run, and if not we return here.
  */
+
+	// 这里可以看出，pause()系统调用会把任务 0 切换成可中断等待状态，再执行调度函数
+	// 调度函数只要发现系统中没有其他进程可以执行的时候，就会执行任务 0，与任务0所处的进程状态无关！
 	for(;;) pause();
 }
 
@@ -201,14 +203,18 @@ static int printf(const char *fmt, ...)
 static char * argv_rc[] = { "/bin/sh", NULL };
 static char * envp_rc[] = { "HOME=/", NULL };
 
-static char * argv[] = { "-/bin/sh",NULL };
+static char * argv[] = { "-/bin/sh",NULL };		// 这里多了一个连字符？？
 static char * envp[] = { "HOME=/usr/root", NULL };
 
+// 这个init()运行在任务1中，首先对shell程序进行初始化，然后加载程序并执行。
 void init(void)
 {
 	int pid,i;
 
+	// 这是一个系统调用。用来读取硬盘参数包括分区表信息，安装根文件系统设备，对应的函数是sys_setup()
 	setup((void *) &drive_info);
+
+	// 以读写方式打开设备/dev/tty0，它是Linux的终端控制台
 	(void) open("/dev/tty0",O_RDWR,0);
 	(void) dup(0);
 	(void) dup(0);
