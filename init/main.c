@@ -23,11 +23,14 @@
  * some others too.
  */
 
-
+//
 // main.c会在移动到内核态之后才会执行fork(),避免在内核空间发生写时复制(copy on write)
-// 在执行了move_to_user_mode()之后，该程序就会在任务0中运行，任务0是所有即将创建的进程的父进程，他的子进程会复制它的堆栈，所以说，我们尽量保证main.c运行在任务0的时候，不要有其他任何对堆栈的操作，以免弄乱堆栈，导致子进程的不可预料的混乱。
+// 在执行了move_to_user_mode()之后，该程序就会在任务0中运行，任务0是所有即将创建的进程的父进程，
+//他的子进程会复制它的堆栈，所以说，我们尽量保证main.c运行在任务0的时候，不要有其他任何对堆栈的操作，以免弄乱堆栈，导致子进程的不可预料的混乱。
+//
 
-// 这是内嵌宏代码，在C中嵌入汇编，调用Linux中的系统调用128号中断 0x80，该中断是所有系统调用的入口！该语句实际上是int fork()创建进程的系统调用。其中，syscal0表示该系统调用无参数，1表示系统调用有一个参数，see include/unistd.h line 133
+// 这是内嵌宏代码，在C中嵌入汇编，调用Linux中的系统调用128号中断 0x80，该中断是所有系统调用的入口！
+//该语句实际上是int fork()创建进程的系统调用。其中，syscal0表示该系统调用无参数，1表示系统调用有一个参数，see include/unistd.h line 133
 static inline _syscall0(int,fork)
 
 // int pause() 系统调用，暂停进程，直到接收到一个信号
@@ -174,7 +177,7 @@ void main(void)		/* This really IS void, no error here. */
 	sti();
 	move_to_user_mode();
 	if (!fork()) {		/* we count on this going ok */
-		init();			// 切换到任务 0 中执行
+		init();			// 这个语句是在任务 1 中执行
 	}
 /*
  *   NOTE!!   For any other task 'pause()' would mean we have to get a
@@ -215,40 +218,75 @@ void init(void)
 	setup((void *) &drive_info);
 
 	// 以读写方式打开设备/dev/tty0，它是Linux的终端控制台
+	// 由于这是系统第一次打开文件系统，所以文件句柄一定是 1,该句柄是stdin，以读写的方式打开是为了复制句柄stdout和stderr
 	(void) open("/dev/tty0",O_RDWR,0);
+
+	// 复制句柄，产生句柄一号，sdtout
+	(void) dup(0);	
+
+	// 复制句柄，产生句柄二号，stderr
 	(void) dup(0);
-	(void) dup(0);
+
+	// 缓冲区块数和每块大小（1024b）
 	printf("%d buffers = %d bytes buffer space\n\r",NR_BUFFERS,
 		NR_BUFFERS*BLOCK_SIZE);
+	// 空闲内存大小
 	printf("Free mem: %d bytes\n\r",memory_end-main_memory_start);
+
+	// 尝试创建一个子进程（2号进程）
+	// 其中，如果创建成功，对于新创建的子进程，fork()会返回0；对于父进程，fork()会返回子进程的pid。创建失败，返回一个负值
+	// !(pid), 也就是当pid=0时，这个if逻辑才为真，所以说，该if下的语句只有子进程（2号进程才会执行！！！）
 	if (!(pid=fork())) {
-		close(0);
-		if (open("/etc/rc",O_RDONLY,0))
-			_exit(1);
-		execve("/bin/sh",argv_rc,envp_rc);
-		_exit(2);
+		close(0);	// 关闭句柄0，即stdin
+		if (open("/etc/rc",O_RDONLY,0))		// 以只读方式打开设备/etc/rc
+			_exit(1);						// 打开失败，退出
+
+		// execve()可以深入了解一下。
+		execve("/bin/sh",argv_rc,envp_rc);	// 将该进程替换成/bin/sh进程，即shell进程，并执行shell进程！
+
+		_exit(2);							// 若 execve()执行失败，退出
 	}
+
+
+	// TODO: 但是这里我有个疑问，pid在这里只是一个局部变量，fork()一次后，对于父进程和子进程，如何做到 变量pid 的不同？
+	//
+	// pid > 0，所以这是父进程（1号进程）执行的逻辑
 	if (pid>0)
-		while (pid != wait(&i))
+
+		// wait() 等待子进程的停止或终止，返回子进程的pid，
+		while (pid != wait(&i))				// pid != 子进程的pid
 			/* nothing */;
+			// 也就是继续等待
+
+	// 如果代码能够运行到这里，说明上面创建的2号进程已经停止或者终止了，这个时候，再创建一个子进程，如果出错，继续创建。
+	// 对于所创建的子进程，关闭所有之前打开的句柄，新创建一个新的会话，重新打开/dev/tty0，作为stdin，再次复制句柄，执行shell程序
+	// 但是注意，这次执行shell的参数变了！
+	// 然后，父进程还是等待子进程结束，如果子进程结束了，输出，然后继续重试，形成一个无限大的“死”循环。
+
 	while (1) {
+
+		// 创建子进程失败，继续...
 		if ((pid=fork())<0) {
 			printf("Fork failed in init\r\n");
 			continue;
 		}
+		// 新的子进程执行的逻辑
 		if (!pid) {
 			close(0);close(1);close(2);
-			setsid();
+			setsid();							// 创建一个新的会话
 			(void) open("/dev/tty0",O_RDWR,0);
 			(void) dup(0);
 			(void) dup(0);
 			_exit(execve("/bin/sh",argv,envp));
 		}
+
+		// 不断试探，看看新创建的子进程是否已经停止
 		while (1)
+			// 已经停止，退出试探
 			if (pid == wait(&i))
-				break;
+				break;		
 		printf("\n\rchild %d died with code %04x\n\r",pid,i);
-		sync();
+		sync();									// 同步，刷新缓冲区
 	}
 	
 	// 这里的_exit()直接是一个系统调用(sys_exit)
