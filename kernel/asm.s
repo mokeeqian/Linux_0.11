@@ -11,15 +11,24 @@
  * the fpu must be properly saved/resored. This hasn't been tested.
  */
 
+/*
+	主要是对INtel保留中断int0- int 16 的处理
+*/
+
+
+// 全局变量声明
 .globl _divide_error,_debug,_nmi,_int3,_overflow,_bounds,_invalid_op
 .globl _double_fault,_coprocessor_segment_overrun
 .globl _invalid_TSS,_segment_not_present,_stack_segment
 .globl _general_protection,_coprocessor_error,_irq13,_reserved
 
+// 除零错误处理
 _divide_error:
-	pushl $_do_divide_error
+	pushl $_do_divide_error		// 调用函数地址入栈
+
+// 无出错号处理入口处
 no_error_code:
-	xchgl %eax,(%esp)
+	xchgl %eax,(%esp)			// 交换eax 和esp
 	pushl %ebx
 	pushl %ecx
 	pushl %edx
