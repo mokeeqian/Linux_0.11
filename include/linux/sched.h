@@ -1,11 +1,18 @@
 #ifndef _SCHED_H
 #define _SCHED_H
 
+/**
+ *	Linux 进程调度数据结构！
+ *	解读日期：2019-10-22
+ *
+ */
+
+
 #define NR_TASKS 64		// 最多支持64个进程
 #define HZ 100
 
-#define FIRST_TASK task[0]
-#define LAST_TASK task[NR_TASKS-1]
+#define FIRST_TASK task[0]	// 第一个进程
+#define LAST_TASK task[NR_TASKS-1]	// 最后一个进程
 
 #include <linux/head.h>
 #include <linux/fs.h>
@@ -16,18 +23,18 @@
 #error "Currently the close-on-exec-flags are in one word, max 32 files/proc"
 #endif
 
-#define TASK_RUNNING		0
-#define TASK_INTERRUPTIBLE	1
+#define TASK_RUNNING		0	// 
+#define TASK_INTERRUPTIBLE	1	// 可中断进程
 #define TASK_UNINTERRUPTIBLE	2
 #define TASK_ZOMBIE		3		// 僵尸进程
 #define TASK_STOPPED		4
 
 #ifndef NULL
-#define NULL ((void *) 0)
+#define NULL ((void *) 0)	// NULL 的宏定义，要注意Linux下面，有时候C++的NULL就直接是 0!!
 #endif
 
-extern int copy_page_tables(unsigned long from, unsigned long to, long size);
-extern int free_page_tables(unsigned long from, unsigned long size);
+extern int copy_page_tables(unsigned long from, unsigned long to, long size);	// 复制页表
+extern int free_page_tables(unsigned long from, unsigned long size);			// 释放页表
 
 extern void sched_init(void);
 extern void schedule(void);
@@ -75,13 +82,14 @@ struct tss_struct {
 	struct i387_struct i387;
 };
 
-// 进程参数结构体
+// 进程参数结构体!!!
+// 重要数据结构
 struct task_struct {
 /* these are hardcoded - don't touch */
 	long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
-	long counter;
-	long priority;	// 优先级
-	long signal;
+	long counter;		// 时间片计数器，（递减的！）
+	long priority;	// 优先级，开始时counter = priority，priority越大表示运行时间越长
+	long signal;	// 信号位图
 	struct sigaction sigaction[32];
 	long blocked;	/* bitmap of masked signals */
 /* various fields */

@@ -42,15 +42,16 @@ DS		= 0x18
 EIP		= 0x1C
 CS		= 0x20
 EFLAGS		= 0x24
-OLDESP		= 0x28
+OLDESP		= 0x28		# 特权级发生了变化
 OLDSS		= 0x2C
 
-state	= 0		# these are offsets into the task-struct.
-counter	= 4
-priority = 8
-signal	= 12
-sigaction = 16		# MUST be 16 (=len of sigaction)
-blocked = (33*16)
+# 以下是对进程结构变量的偏移量
+state	= 0		# these are offsets into the task-struct.	# 进程状态码
+counter	= 4		# 任务运行时间计数（递减的）
+priority = 8	# 运行优先数，开始时counter = priority，priority越大，运行时间越长
+signal	= 12	# 信号位图，每个比特位代表一种信号，信号值=位偏移值+1
+sigaction = 16		# MUST be 16 (=len of sigaction)	# sigaction结构大小是16
+blocked = (33*16)	# 手足塞信号位图的偏移值
 
 # offsets within sigaction
 sa_handler = 0

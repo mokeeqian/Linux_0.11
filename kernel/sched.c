@@ -4,6 +4,11 @@
  *  (C) 1991  Linus Torvalds
  */
 
+
+// 解读日期： 2019-10-22
+
+
+
 /*
  * 'sched.c' is the main kernel file. It contains scheduling primitives
  * (sleep_on, wakeup, schedule etc) as well as a number of simple system
@@ -23,17 +28,24 @@
 #define _S(nr) (1<<((nr)-1))
 #define _BLOCKABLE (~(_S(SIGKILL) | _S(SIGSTOP)))
 
+// 显示进程状态以及可用堆栈空间（大概的字节数）
+// nr: 进程号(不是pid!)
+// p: 进程结构指针
 void show_task(int nr,struct task_struct * p)
 {
-	int i,j = 4096-sizeof(struct task_struct);
+	int i,j = 4096-sizeof(struct task_struct);		// 这里是否可以证明Linux为每个进程提供4G虚拟内存空间？
 
 	printk("%d: pid=%d, state=%d, ",nr,p->pid,p->state);
+	
+	// i 是进程所占的空间大小，这里统计i的大小
 	i=0;
-	while (i<j && !((char *)(p+1))[i])
+	while (i<j && !((char *)(p+1))[i])	// 一个char刚好是一个字节
+			// 这里还是不太懂，C不太扎实！！
 		i++;
 	printk("%d (of %d) chars free in kernel stack\n\r",i,j);
 }
 
+// 打印全部进程的信息
 void show_stat(void)
 {
 	int i;
