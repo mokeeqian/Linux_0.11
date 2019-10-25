@@ -25,8 +25,8 @@
 
 #include <signal.h>
 
-#define _S(nr) (1<<((nr)-1))
-#define _BLOCKABLE (~(_S(SIGKILL) | _S(SIGSTOP)))
+#define _S(nr) (1<<((nr)-1))	// 取信号nr在信号位图中对应位的二进制数值，1-32
+#define _BLOCKABLE (~(_S(SIGKILL) | _S(SIGSTOP)))	// 函数宏，除了SIGKILL和SIGSTOP，其他的信号都是可阻塞的
 
 // 显示进程状态以及可用堆栈空间（大概的字节数）
 // nr: 进程号(不是pid!)
@@ -34,13 +34,13 @@
 void show_task(int nr,struct task_struct * p)
 {
 	int i,j = 4096-sizeof(struct task_struct);		// 这里是否可以证明Linux为每个进程提供4G虚拟内存空间？
-
+	// j 是进程可用虚拟空间大小(虚拟内存大小减去进程结构所占空间大小)
 	printk("%d: pid=%d, state=%d, ",nr,p->pid,p->state);
 	
-	// i 是进程所占的空间大小，这里统计i的大小
+	// i 是进程可用的空间大小，这里统计i的大小
 	i=0;
 	while (i<j && !((char *)(p+1))[i])	// 一个char刚好是一个字节
-			// 这里还是不太懂，C不太扎实！！
+			// 这里还是不太懂，C不太扎实！！	// !(char *)(p+1)[i]是检测当前任务指针后为0(空指针)的字节数，即为空闲内存??
 		i++;
 	printk("%d (of %d) chars free in kernel stack\n\r",i,j);
 }
@@ -50,18 +50,19 @@ void show_stat(void)
 {
 	int i;
 
-	for (i=0;i<NR_TASKS;i++)
+	for (i=0;i<NR_TASKS;i++)	// NR_TASKS是一个宏定义,linux 0.11最多支持64 个进程
 		if (task[i])
 			show_task(i,task[i]);
 }
 
-#define LATCH (1193180/HZ)
+#define LATCH (1193180/HZ)	// 每个时间片的滴答数量
 
-extern void mem_use(void);
+extern void mem_use(void);	// 没用的?
 
 extern int timer_interrupt(void);
 extern int system_call(void);
 
+// 每个进程和内核态堆栈放在同一内存页中，这里方便管理
 union task_union {
 	struct task_struct task;
 	char stack[PAGE_SIZE];
@@ -69,14 +70,16 @@ union task_union {
 
 static union task_union init_task = {INIT_TASK,};
 
-long volatile jiffies=0;
+// volatile关键字表示该变量是可变的，可能会被修改的，告诉编译器不要对该变量进行优化和移动位置！
+long volatile jiffies=0;	// 从开机算起的时间pain滴答数， 10ms一个滴答
+
 long startup_time=0;
-struct task_struct *current = &(init_task.task);
-struct task_struct *last_task_used_math = NULL;
+struct task_struct *current = &(init_task.task);	// 以初始任务初始化当前任务指针
+struct task_struct *last_task_used_math = NULL;		// 上一个使用数学协处理器的任务
 
-struct task_struct * task[NR_TASKS] = {&(init_task.task), };
+struct task_struct * task[NR_TASKS] = {&(init_task.task), };	// 任务指针数组
 
-long user_stack [ PAGE_SIZE>>2 ] ;
+long user_stack [ PAGE_SIZE>>2 ] ;	// 哦用户站, 4k, 指针指在最后一项
 
 struct {
 	long * a;
@@ -113,22 +116,22 @@ void math_state_restore()
  * tasks can run. It can not be killed, and it cannot sleep. The 'state'
  * information in task[0] is never used.
  */
-void schedule(void)
+void schedule(void)	/// 调度子程序
 {
 	int i,next,c;
 	struct task_struct ** p;
 
 /* check alarm, wake up any interruptible tasks that have got a signal */
-
-	for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
+// 检测alarm，进程报警时间值，唤醒任何得到信号的可中端进程
+	for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)	// 从后往前便利
 		if (*p) {
-			if ((*p)->alarm && (*p)->alarm < jiffies) {
-					(*p)->signal |= (1<<(SIGALRM-1));
-					(*p)->alarm = 0;
+			if ((*p)->alarm && (*p)->alarm < jiffies) {	// 如果设置过alarm，并且已经过期了,(alarm<jiffies)
+					(*p)->signal |= (1<<(SIGALRM-1));	// 向进程发送SIGALARM信号，默认操作是： 终止进程
+					(*p)->alarm = 0;			// alarm 清零
 				}
-			if (((*p)->signal & ~(_BLOCKABLE & (*p)->blocked)) &&
+			if (((*p)->signal & ~(_BLOCKABLE & (*p)->blocked)) &&		//除了被组赛大的信号，还有其他信号，并且可中端状态
 			(*p)->state==TASK_INTERRUPTIBLE)
-				(*p)->state=TASK_RUNNING;
+				(*p)->state=TASK_RUNNING;	// 设为就绪
 		}
 
 /* this is the scheduler proper: */
@@ -138,13 +141,22 @@ void schedule(void)
 		next = 0;
 		i = NR_TASKS;
 		p = &task[NR_TASKS];
-		while (--i) {
+		
+		// 同样是从后往前遍历
+		while (--i) {	
+			
+			// 当前task不存在，
 			if (!*--p)
 				continue;
+			
+			// 就绪，counter是递减的，比较counter和c ,不断更新
 			if ((*p)->state == TASK_RUNNING && (*p)->counter > c)
 				c = (*p)->counter, next = i;
 		}
+		// 如果有counter 大于0，退出虚幻，执行切换
 		if (c) break;
+		
+		// 否则，按照counter = counter *1/2 + priority计算，再次循环
 		for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
 			if (*p)
 				(*p)->counter = ((*p)->counter >> 1) +
