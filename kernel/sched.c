@@ -187,7 +187,6 @@ void sleep_on(struct task_struct **p)
 	if (tmp)
 		tmp->state=0;
 }
-
 void interruptible_sleep_on(struct task_struct **p)
 {
 	struct task_struct *tmp;
