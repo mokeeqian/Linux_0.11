@@ -32,9 +32,9 @@ begbss:
 .text
 
 SETUPLEN = 4				! nr of setup-sectors
-BOOTSEG  = 0x07c0			! original address of boot-sector
-INITSEG  = 0x9000			! we move boot here - out of the way
-SETUPSEG = 0x9020			! setup starts here
+BOOTSEG  = 0x07c0			! original address of boot-sector		!! bootselect.s在0x07c0处被BIOS中断加载
+INITSEG  = 0x9000			! we move boot here - out of the way	!! 随后移动到 0x9000处
+SETUPSEG = 0x9020			! setup starts here						!! setup.s 在这里执行
 SYSSEG   = 0x1000			! system loaded at 0x10000 (65536).
 ENDSEG   = SYSSEG + SYSSIZE		! where to stop loading
 
@@ -93,9 +93,9 @@ ok_load_setup:
 
 	mov	ah,#0x03		! read cursor pos
 	xor	bh,bh
-	int	0x10
+	int	0x10			
 	
-	mov	cx,#24
+	mov	cx,#24			!!! 这是msg1字符串的长度
 	mov	bx,#0x0007		! page 0, attribute 7 (normal)
 	mov	bp,#msg1
 	mov	ax,#0x1301		! write string, move cursor
@@ -242,13 +242,15 @@ sectors:
 	.word 0
 
 msg1:
-	.byte 13,10
+	.byte 13,10		! 换行、回车
 	.ascii "Loading system ..."
 	.byte 13,10,13,10
 
 .org 508
 root_dev:
 	.word ROOT_DEV
+	
+!!! boot_flag必须位于扇区的最后两个字节，引导程序必须占满一个磁盘扇区(512字节)
 boot_flag:
 	.word 0xAA55
 
