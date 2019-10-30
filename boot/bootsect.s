@@ -3,7 +3,7 @@
 ! 0x3000 is 0x30000 bytes = 196kB, more than enough for current
 ! versions of linux
 !
-SYSSIZE = 0x3000
+SYSSIZE = 0x30000  		!!! 编译连接后system模块的大小，在当时已经足够大了。
 !
 !	bootsect.s		(C) 1991 Linus Torvalds
 !
@@ -22,28 +22,30 @@ SYSSIZE = 0x3000
 ! read errors will result in a unbreakable loop. Reboot by hand. It
 ! loads pretty fast by getting whole sectors at a time whenever possible.
 
-.globl begtext, begdata, begbss, endtext, enddata, endbss
-.text
+.globl begtext, begdata, begbss, endtext, enddata, endbss	!!! 6个全局标识符
+.text	
 begtext:
 .data
 begdata:
-.bss
-begbss:
+.bss		!!! 未初始化数据段 block started by symble
+begbss:	
 .text
 
-SETUPLEN = 4				! nr of setup-sectors
-BOOTSEG  = 0x07c0			! original address of boot-sector		!! bootselect.s在0x07c0处被BIOS中断加载
-INITSEG  = 0x9000			! we move boot here - out of the way	!! 随后移动到 0x9000处
+SETUPLEN = 4				! nr of setup-sectors					!! setup 程序的扇区数目
+BOOTSEG  = 0x07c0			! original address of boot-sector		!! bootselect.s在0x07c0处被BIOS中断加载, 段地址
+INITSEG  = 0x9000			! we move boot here - out of the way	!! 随后它自己移动到 0x9000处
 SETUPSEG = 0x9020			! setup starts here						!! setup.s 在这里执行
-SYSSEG   = 0x1000			! system loaded at 0x10000 (65536).
+SYSSEG   = 0x1000			! system loaded at 0x10000 (65536).		!! system模块加载到这里
 ENDSEG   = SYSSEG + SYSSIZE		! where to stop loading
 
 ! ROOT_DEV:	0x000 - same type of floppy as boot.
 !		0x301 - first partition on first drive etc
-ROOT_DEV = 0x306
+ROOT_DEV = 0x306		!! 指定根文件系统设备是第二个硬盘，第一个分区
+				
 
-entry start
+entry start				!! 告知连接程序，程序从start标识符开始执行
 start:
+
 	mov	ax,#BOOTSEG
 	mov	ds,ax
 	mov	ax,#INITSEG
@@ -51,9 +53,12 @@ start:
 	mov	cx,#256
 	sub	si,si
 	sub	di,di
-	rep
-	movw
-	jmpi	go,INITSEG
+	rep					!! 重复执行，直到cx =0 
+	movw				!! 移动一个字
+	jmpi	go,INITSEG	!! 间接跳转
+
+	!! 这一段程序是将bootselect代码从0x07c0移动到0x9000位置, 共256字，即521字节,然后跳转到go除执行
+
 go:	mov	ax,cs
 	mov	ds,ax
 	mov	es,ax
@@ -246,13 +251,13 @@ msg1:
 	.ascii "Loading system ..."
 	.byte 13,10,13,10
 
-.org 508
+.org 508				!! 下面语句从地址508开始
 root_dev:
-	.word ROOT_DEV
+	.word ROOT_DEV		!! 存放根文件系统所在设备号，init/main.c中会用到
 	
 !!! boot_flag必须位于扇区的最后两个字节，引导程序必须占满一个磁盘扇区(512字节)
 boot_flag:
-	.word 0xAA55
+	.word 0xAA55		!! 硬盘有效标识符
 
 .text
 endtext:

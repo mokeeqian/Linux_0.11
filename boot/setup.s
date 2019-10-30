@@ -14,6 +14,13 @@
 
 ! NOTE! These had better be the same as in bootsect.s!
 
+
+!!!	利用ROM BIOS中断读取机器系统数据，将这些数据保存到0x0900的位置（覆盖了原来bootselect.s代码的位置） 
+
+
+!!!
+
+
 INITSEG  = 0x9000	! we move boot here - out of the way
 SYSSEG   = 0x1000	! system loaded at 0x10000 (65536).
 SETUPSEG = 0x9020	! this is the current segment
