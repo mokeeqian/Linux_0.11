@@ -10,7 +10,7 @@
 /*#define _POSIX_SAVED_IDS */	/* we'll get to this yet */
 /*#define _POSIX_JOB_CONTROL */	/* we aren't there quite yet. Soon hopefully */
 
-#define STDIN_FILENO	0
+#define STDIN_FILENO	0		// 文件句柄号
 #define STDOUT_FILENO	1
 #define STDERR_FILENO	2
 

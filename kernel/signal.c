@@ -45,6 +45,7 @@ static inline void get_new(char * from,char * to)
 		*(to++) = get_fs_byte(from++);
 }
 
+
 int sys_signal(int signum, long handler, long restorer)
 {
 	struct sigaction tmp;

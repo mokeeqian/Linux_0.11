@@ -91,8 +91,13 @@ void free_page(unsigned long addr)
 	if (addr < LOW_MEM) return;
 	if (addr >= HIGH_MEMORY)
 		panic("trying to free nonexistent page");
+		
+	// 以上是地址访问界限判定逻辑
+		
 	addr -= LOW_MEM;
-	addr >>= 12;
+	
+	// 页面大小4KB
+	addr >>= 12;	
 	if (mem_map[addr]--) return;
 	mem_map[addr]=0;
 	panic("trying to free free page");
